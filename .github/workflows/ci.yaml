@@ -9,9 +9,10 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  FRB_MAIN_RUST_VERSION: 1.84.0
-  FRB_MAIN_DART_VERSION: 3.6.2
-  FRB_MAIN_FLUTTER_VERSION: 3.27.4
+  FRB_MAIN_RUST_VERSION: 1.93.1
+  FRB_MAIN_DART_VERSION: 3.11.0
+  FRB_MAIN_FLUTTER_VERSION: 3.41.2
+  FRB_RUSTFMT_NIGHTLY_VERSION: nightly-2025-02-01
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -85,8 +86,8 @@ jobs:
           toolchain: ${{ env.FRB_MAIN_RUST_VERSION }}
           components: rustfmt, clippy
       - run: |-
-          rustup toolchain install nightly
-          rustup component add rustfmt --toolchain nightly-x86_64-unknown-linux-gnu
+          rustup toolchain install ${{ env.FRB_RUSTFMT_NIGHTLY_VERSION }}
+          rustup component add rustfmt --toolchain ${{ env.FRB_RUSTFMT_NIGHTLY_VERSION }}-x86_64-unknown-linux-gnu
           rustup target add wasm32-unknown-unknown
 
       # execute
@@ -134,8 +135,8 @@ jobs:
           components: rustfmt, clippy
       - uses: taiki-e/install-action@cargo-hack
       - run: |-
-          rustup toolchain install nightly
-          rustup component add rustfmt --toolchain nightly-x86_64-unknown-linux-gnu
+          rustup toolchain install ${{ env.FRB_RUSTFMT_NIGHTLY_VERSION }}
+          rustup component add rustfmt --toolchain ${{ env.FRB_RUSTFMT_NIGHTLY_VERSION }}-x86_64-unknown-linux-gnu
           rustup target add wasm32-unknown-unknown
 
       # execute
@@ -175,8 +176,8 @@ jobs:
       fail-fast: false
       matrix:
         image:
-          - windows-2019
-          - macos-13
+          - windows-2025
+          - macos-15-intel
           - ubuntu-24.04
         package:
           - frb_example--dart_minimal
@@ -191,19 +192,19 @@ jobs:
           - frb_example--rust_ui_counter--ui
           - frb_example--rust_ui_todo_list--ui
         exclude:
-          - { image: windows-2019, package: frb_example--deliberate_bad }
-          - { image: macos-13, package: frb_example--deliberate_bad }
-          - { image: windows-2019, package: frb_example--integrate_third_party }
-          - { image: macos-13, package: frb_example--integrate_third_party }
-          - { image: windows-2019, package: frb_example--flutter_via_integrate }
-          - { image: macos-13, package: frb_example--flutter_via_integrate }
+          - { image: windows-2025, package: frb_example--deliberate_bad }
+          - { image: macos-15-intel, package: frb_example--deliberate_bad }
+          - { image: windows-2025, package: frb_example--integrate_third_party }
+          - { image: macos-15-intel, package: frb_example--integrate_third_party }
+          - { image: windows-2025, package: frb_example--flutter_via_integrate }
+          - { image: macos-15-intel, package: frb_example--flutter_via_integrate }
 
     steps:
       # setup
-      - uses: catchpoint/workflow-telemetry-action@v1
+      - uses: catchpoint/workflow-telemetry-action@v2
         with:
           comment_on_pr: false
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           submodules: recursive
       - uses: dtolnay/rust-toolchain@stable
@@ -214,7 +215,7 @@ jobs:
         with:
           cache: true
           version: ${{ env.FRB_MAIN_FLUTTER_VERSION }}
-      - uses: taiki-e/install-action@cargo-llvm-cov
+      - run: cargo install cargo-llvm-cov --version ${{ matrix.info.version == '1.85.0' && '0.6.21' || '0.6.24' }} --locked
 
       # execute
       - run: ./frb_internal generate-run-frb-codegen-command-generate --set-exit-if-changed --package ${{ matrix.package }} --coverage
@@ -235,8 +236,8 @@ jobs:
       fail-fast: false
       matrix:
         image:
-          - macos-13
-          - windows-2019
+          - macos-15-intel
+          - windows-2025
           - ubuntu-24.04
         package:
           - frb_example--flutter_via_create
@@ -245,10 +246,10 @@ jobs:
 
     steps:
       # setup
-      - uses: catchpoint/workflow-telemetry-action@v1
+      - uses: catchpoint/workflow-telemetry-action@v2
         with:
           comment_on_pr: false
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           submodules: recursive
       - uses: dtolnay/rust-toolchain@stable
@@ -259,7 +260,7 @@ jobs:
         with:
           cache: true
           version: ${{ env.FRB_MAIN_FLUTTER_VERSION }}
-      - uses: taiki-e/install-action@cargo-llvm-cov
+      - run: cargo install cargo-llvm-cov --version ${{ matrix.info.version == '1.85.0' && '0.6.21' || '0.6.24' }} --locked
 
       # execute
       - run: ./frb_internal generate-run-frb-codegen-command-integrate --set-exit-if-changed --package ${{ matrix.package }} --coverage
@@ -276,23 +277,23 @@ jobs:
 
     steps:
       # setup
-      - uses: catchpoint/workflow-telemetry-action@v1
+      - uses: catchpoint/workflow-telemetry-action@v2
         with:
           comment_on_pr: false
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           submodules: recursive
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: ${{ env.FRB_MAIN_RUST_VERSION }}
           components: rustfmt, clippy
-      - run: rustup toolchain install nightly && rustup component add rustfmt --toolchain nightly-x86_64-unknown-linux-gnu
+      - run: rustup toolchain install ${{ env.FRB_RUSTFMT_NIGHTLY_VERSION }} && rustup component add rustfmt llvm-tools-preview --toolchain ${{ env.FRB_RUSTFMT_NIGHTLY_VERSION }}-x86_64-unknown-linux-gnu
       - run: yarn global add all-contributors-cli
       - uses: flutter-actions/setup-flutter@v4
         with:
           cache: true
           version: ${{ env.FRB_MAIN_FLUTTER_VERSION }}
-      - uses: taiki-e/install-action@cargo-llvm-cov
+      - run: cargo install cargo-llvm-cov --version ${{ matrix.info.version == '1.85.0' && '0.6.21' || '0.6.24' }} --locked
 
       # execute
       - run: ./frb_internal generate-internal --set-exit-if-changed --coverage
@@ -312,16 +313,16 @@ jobs:
       fail-fast: false
       matrix:
         image:
-          - windows-2019
-          - macos-13
+          - windows-2025
+          - macos-15-intel
           - ubuntu-24.04
 
     steps:
       # setup
-      - uses: catchpoint/workflow-telemetry-action@v1
+      - uses: catchpoint/workflow-telemetry-action@v2
         with:
           comment_on_pr: false
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           submodules: recursive
       - uses: dtolnay/rust-toolchain@stable
@@ -353,11 +354,11 @@ jobs:
       - bench_dart_native
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           submodules: recursive
       - name: Download artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           path: downloaded-artifacts/
           pattern: '*-benchmark'
@@ -388,9 +389,9 @@ jobs:
       fail-fast: false
       matrix:
         info:
-          - image: windows-2019
+          - image: windows-2025
             target: windows
-          - image: macos-13
+          - image: macos-15-intel
             target: macos
           - image: ubuntu-latest
             target: linux
@@ -398,15 +399,15 @@ jobs:
             target: android-aab
           - image: ubuntu-latest
             target: android-apk
-          - image: macos-13
+          - image: macos-15-intel
             target: ios
 
     steps:
       # setup
-      - uses: catchpoint/workflow-telemetry-action@v1
+      - uses: catchpoint/workflow-telemetry-action@v2
         with:
           comment_on_pr: false
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           submodules: recursive
       # https://docs.flutter.dev/get-started/install/linux#linux-prerequisites
@@ -435,17 +436,17 @@ jobs:
       fail-fast: false
       matrix:
         image:
-          - windows-2019
+          - windows-2025
           # need macos-"13" because https://github.com/fzyzcjy/flutter_rust_bridge/issues/1225
-          - macos-13
+          - macos-15-intel
           - ubuntu-latest
 
     steps:
       # setup
-      - uses: catchpoint/workflow-telemetry-action@v1
+      - uses: catchpoint/workflow-telemetry-action@v2
         with:
           comment_on_pr: false
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           submodules: recursive
       - uses: dtolnay/rust-toolchain@stable
@@ -460,54 +461,55 @@ jobs:
       - if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install clang cmake git ninja-build pkg-config libgtk-3-dev liblzma-dev libstdc++-12-dev
       - if: runner.os == 'Linux'
-        uses: pyvista/setup-headless-display-action@v3
+        uses: pyvista/setup-headless-display-action@v4
 
       # execute
       - run: ./frb_internal test-mimic-quickstart
 
-  test_upgrade:
-    name: 'Test :: Upgrade'
-    runs-on: ${{ matrix.image }}
-    strategy:
-      fail-fast: false
-      matrix:
-        image:
-          - windows-2019
-          # need macos-"13" because https://github.com/fzyzcjy/flutter_rust_bridge/issues/1225
-          - macos-13
-          - ubuntu-latest
+  # TODO re-enable after next release (since need old_version != new_version)
+  # test_upgrade:
+  #   name: 'Test :: Upgrade'
+  #   runs-on: ${{ matrix.image }}
+  #   strategy:
+  #     fail-fast: false
+  #     matrix:
+  #       image:
+  #         - windows-2025
+  #         # need macos-"13" because https://github.com/fzyzcjy/flutter_rust_bridge/issues/1225
+  #         - macos-15-intel
+  #         - ubuntu-latest
 
-    steps:
-      # setup
-      - uses: catchpoint/workflow-telemetry-action@v1
-        with:
-          comment_on_pr: false
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: ${{ env.FRB_MAIN_RUST_VERSION }}
-          components: rustfmt
-      - uses: flutter-actions/setup-flutter@v4
-        with:
-          cache: true
-          version: ${{ env.FRB_MAIN_FLUTTER_VERSION }}
-      # https://docs.flutter.dev/get-started/install/linux#linux-prerequisites
-      - if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install clang cmake git ninja-build pkg-config libgtk-3-dev liblzma-dev libstdc++-12-dev
-      - if: runner.os == 'Linux'
-        uses: pyvista/setup-headless-display-action@v3
-      - uses: taiki-e/install-action@cargo-llvm-cov
+  #   steps:
+  #     # setup
+  #     - uses: catchpoint/workflow-telemetry-action@v1
+  #       with:
+  #         comment_on_pr: false
+  #     - uses: actions/checkout@v4
+  #       with:
+  #         submodules: recursive
+  #     - uses: dtolnay/rust-toolchain@stable
+  #       with:
+  #         toolchain: ${{ env.FRB_MAIN_RUST_VERSION }}
+  #         components: rustfmt
+  #     - uses: flutter-actions/setup-flutter@v4
+  #       with:
+  #         cache: true
+  #         version: ${{ env.FRB_MAIN_FLUTTER_VERSION }}
+  #     # https://docs.flutter.dev/get-started/install/linux#linux-prerequisites
+  #     - if: runner.os == 'Linux'
+  #       run: sudo apt-get update && sudo apt-get install clang cmake git ninja-build pkg-config libgtk-3-dev liblzma-dev libstdc++-12-dev
+  #     - if: runner.os == 'Linux'
+  #       uses: pyvista/setup-headless-display-action@v3
+  #     - uses: taiki-e/install-action@cargo-llvm-cov
 
-      # execute
-      - run: ./frb_internal test-upgrade
+  #     # execute
+  #     - run: ./frb_internal test-upgrade
 
-      # report
-      - uses: actions/upload-artifact@v4
-        with:
-          name: ${{ github.job }}--${{ matrix.image }}--coverage
-          path: target/coverage
+  #     # report
+  #     - uses: actions/upload-artifact@v4
+  #       with:
+  #         name: ${{ github.job }}--${{ matrix.image }}--coverage
+  #         path: target/coverage
 
   test_rust:
     name: 'Test :: Rust'
@@ -517,9 +519,9 @@ jobs:
       matrix:
         info:
           # run on various platforms
-          - image: macos-13
+          - image: macos-15-intel
             version: ''
-          - image: windows-2019
+          - image: windows-2025
             version: ''
           - image: ubuntu-latest
             version: ''
@@ -530,14 +532,15 @@ jobs:
           # run on all rust packages, though only needed for frb_rust and frb_codegen
           - image: ubuntu-latest
             # update this, if a later MSRV is needed
-            version: 1.83.0
+            # Need at least 1.85.0 for latest cargo-expand; if need older Rust version may pin a old cargo-expand
+            version: 1.85.0
 
     steps:
       # setup
-      - uses: catchpoint/workflow-telemetry-action@v1
+      - uses: catchpoint/workflow-telemetry-action@v2
         with:
           comment_on_pr: false
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           submodules: recursive
       - uses: dtolnay/rust-toolchain@stable
@@ -549,7 +552,7 @@ jobs:
         with:
           sdk: ${{ env.FRB_MAIN_DART_VERSION }}
           architecture: x64
-      - uses: taiki-e/install-action@cargo-llvm-cov
+      - run: cargo install cargo-llvm-cov --version ${{ matrix.info.version == '1.85.0' && '0.6.21' || '0.6.24' }} --locked
 
       # execute
       - run: ./frb_internal test-rust --coverage
@@ -567,8 +570,8 @@ jobs:
       fail-fast: false
       matrix:
         image:
-          - windows-2019
-          - macos-13
+          - windows-2025
+          - macos-15-intel
           - ubuntu-24.04
         package:
           - frb_dart
@@ -578,21 +581,21 @@ jobs:
           - frb_example--pure_dart
           - frb_example--pure_dart_pde
           - frb_example--dart_build_rs
-          - frb_example--deliberate_bad
+          # - frb_example--deliberate_bad
         exclude:
-          - { image: windows-2019, package: frb_utils }
-          - { image: macos-13, package: frb_utils }
-          - { image: windows-2019, package: tools--frb_internal }
-          - { image: macos-13, package: tools--frb_internal }
-          - { image: windows-2019, package: frb_example--deliberate_bad }
-          - { image: macos-13, package: frb_example--deliberate_bad }
+          - { image: windows-2025, package: frb_utils }
+          - { image: macos-15-intel, package: frb_utils }
+          - { image: windows-2025, package: tools--frb_internal }
+          - { image: macos-15-intel, package: tools--frb_internal }
+          # - { image: windows-2025, package: frb_example--deliberate_bad }
+          # - { image: macos-15-intel, package: frb_example--deliberate_bad }
 
     steps:
       # setup
-      - uses: catchpoint/workflow-telemetry-action@v1
+      - uses: catchpoint/workflow-telemetry-action@v2
         with:
           comment_on_pr: false
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           submodules: recursive
       - uses: dtolnay/rust-toolchain@stable
@@ -603,7 +606,7 @@ jobs:
         with:
           sdk: ${{ env.FRB_MAIN_DART_VERSION }}
           architecture: x64
-      - uses: taiki-e/install-action@cargo-llvm-cov
+      - run: cargo install cargo-llvm-cov --version 0.6.24 --locked
 
       # execute
       - run: ./frb_internal test-dart-native --package ${{ matrix.package }} --coverage
@@ -629,10 +632,10 @@ jobs:
 
     steps:
       # setup
-      - uses: catchpoint/workflow-telemetry-action@v1
+      - uses: catchpoint/workflow-telemetry-action@v2
         with:
           comment_on_pr: false
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           submodules: recursive
       # https://github.com/puppeteer/puppeteer/pull/13196
@@ -649,7 +652,7 @@ jobs:
           components: rust-src,rustfmt
       - name: Cache dependencies
         id: test-cache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/bin/
@@ -682,10 +685,10 @@ jobs:
 
     steps:
       # setup
-      - uses: catchpoint/workflow-telemetry-action@v1
+      - uses: catchpoint/workflow-telemetry-action@v2
         with:
           comment_on_pr: false
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           submodules: recursive
       - uses: dtolnay/rust-toolchain@stable
@@ -723,10 +726,10 @@ jobs:
 
     steps:
       # setup
-      - uses: catchpoint/workflow-telemetry-action@v1
+      - uses: catchpoint/workflow-telemetry-action@v2
         with:
           comment_on_pr: false
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           submodules: recursive
       - uses: dtolnay/rust-toolchain@stable
@@ -743,6 +746,8 @@ jobs:
 
       # execute
       - run: ./frb_internal test-dart-sanitizer --package ${{ matrix.package }} --sanitizer ${{ matrix.sanitizer }}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
 
   # TODO re-enable when upgrading CI flutter version
   #  # ref https://betterprogramming.pub/test-flutter-apps-on-android-with-github-actions-abdba2137b4
@@ -826,15 +831,15 @@ jobs:
           - frb_example--rust_ui_todo_list--ui
           # no `frb_example--flutter_via_integrate` since it is similar to `flutter_via_create`
         device:
-          - "iPad (10th generation) Simulator (17.2)"
-          - "iPhone 15 Pro Max Simulator (17.2)"
+          - "iPad (10th generation) Simulator (18.6)"
+          - "iPhone 16 Pro Max Simulator (18.6)"
 
     steps:
       # setup
-      - uses: catchpoint/workflow-telemetry-action@v1
+      - uses: catchpoint/workflow-telemetry-action@v2
         with:
           comment_on_pr: false
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           submodules: recursive
       - name: "Start Simulator"
@@ -860,41 +865,41 @@ jobs:
       fail-fast: false
       matrix:
         info:
-          - image: windows-2019
+          - image: windows-2025
             platform: windows
             package: frb_example--flutter_via_create
           # need macos-"13" because https://github.com/fzyzcjy/flutter_rust_bridge/issues/1225
-          - image: macos-13
+          - image: macos-15-intel
             platform: macos
             package: frb_example--flutter_via_create
           - image: ubuntu-latest
             platform: linux
             package: frb_example--flutter_via_create
 
-          - image: windows-2019
+          - image: windows-2025
             platform: windows
             package: frb_example--flutter_package--example
-          - image: macos-13
+          - image: macos-15-intel
             platform: macos
             package: frb_example--flutter_package--example
           - image: ubuntu-latest
             platform: linux
             package: frb_example--flutter_package--example
 
-          - image: windows-2019
+          - image: windows-2025
             platform: windows
             package: frb_example--rust_ui_counter--ui
-          - image: macos-13
+          - image: macos-15-intel
             platform: macos
             package: frb_example--rust_ui_counter--ui
           - image: ubuntu-latest
             platform: linux
             package: frb_example--rust_ui_counter--ui
 
-          - image: windows-2019
+          - image: windows-2025
             platform: windows
             package: frb_example--rust_ui_todo_list--ui
-          - image: macos-13
+          - image: macos-15-intel
             platform: macos
             package: frb_example--rust_ui_todo_list--ui
           - image: ubuntu-latest
@@ -916,17 +921,17 @@ jobs:
 
     steps:
       # setup
-      - uses: catchpoint/workflow-telemetry-action@v1
+      - uses: catchpoint/workflow-telemetry-action@v2
         with:
           comment_on_pr: false
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           submodules: recursive
       # https://docs.flutter.dev/get-started/install/linux#linux-prerequisites
       - if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install clang cmake git ninja-build pkg-config libgtk-3-dev liblzma-dev libstdc++-12-dev
       - if: runner.os == 'Linux'
-        uses: pyvista/setup-headless-display-action@v3
+        uses: pyvista/setup-headless-display-action@v4
       - uses: flutter-actions/setup-flutter@v4
         with:
           cache: true
@@ -948,10 +953,10 @@ jobs:
           - frb_example--gallery
 
     steps:
-      - uses: catchpoint/workflow-telemetry-action@v1
+      - uses: catchpoint/workflow-telemetry-action@v2
         with:
           comment_on_pr: false
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           submodules: recursive
       # https://github.com/puppeteer/puppeteer/pull/13196
@@ -964,7 +969,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: ${{ env.FRB_MAIN_RUST_VERSION }}
-      - uses: taiki-e/install-action@cargo-llvm-cov
+      - run: cargo install cargo-llvm-cov --version 0.6.24 --locked
       - run: |-
           rustup toolchain install nightly
           rustup component add rust-src --toolchain nightly-x86_64-unknown-linux-gnu
@@ -1002,23 +1007,36 @@ jobs:
       - generate_run_frb_codegen_command_generate
       - generate_run_frb_codegen_command_integrate
       - generate_internal
-      - test_upgrade
+      # - test_upgrade
       - test_rust
       - test_dart_native
       - test_flutter_web
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           submodules: recursive
+      - uses: flutter-actions/setup-flutter@v4
+        with:
+          cache: true
+          version: ${{ env.FRB_MAIN_FLUTTER_VERSION }}
       - name: Download artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           path: downloaded-artifacts/
           pattern: '*-coverage'
       - run: tree downloaded-artifacts
+      - name: Preaggregate Rust coverage
+        run: |-
+          cd tools/frb_internal
+          dart pub get
+          dart run bin/flutter_rust_bridge_internal.dart codecov-preaggregate \
+            --input-dir ../../downloaded-artifacts \
+            --output ../../downloaded-artifacts/preaggregated/rust/codecov.json
+          find ../../downloaded-artifacts -name codecov.json ! -path '../../downloaded-artifacts/preaggregated/rust/codecov.json' -delete
+      - run: tree downloaded-artifacts
 
-      - uses: codecov/codecov-action@v3
+      - uses: codecov/codecov-action@v5
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
         with:

@@ -837,7 +837,7 @@ typedef Dart_Handle (*Dart_GetVMServiceAssetsArchive)(void);
  * The current version of the Dart_InitializeFlags. Should be incremented every
  * time Dart_InitializeFlags changes in a binary incompatible way.
  */
-#define DART_INITIALIZE_PARAMS_CURRENT_VERSION (0x00000009)
+#define DART_INITIALIZE_PARAMS_CURRENT_VERSION (0x0000000A)
 
 /** Forward declaration */
 struct Dart_CodeObserver;
@@ -930,6 +930,8 @@ typedef struct {
   /**
    * A function to be called by the service isolate when it requires the
    * vmservice assets archive. See Dart_GetVMServiceAssetsArchive.
+   * 
+   * This field is deprecated and has no effect.
    */
   Dart_GetVMServiceAssetsArchive get_service_assets;
 
@@ -940,15 +942,6 @@ typedef struct {
    * as early as during the Dart_Initialize() call.
    */
   Dart_CodeObserver* code_observer;
-
-#if defined(__Fuchsia__)
-  /**
-   * The resource needed to use zx_vmo_replace_as_executable. Can be
-   * ZX_HANDLE_INVALID if the process has ambient-replace-as-executable or if
-   * executable memory is not needed (e.g., this is an AOT runtime).
-   */
-  zx_handle_t vmex_resource;
-#endif
 } Dart_InitializeParams;
 
 /**
@@ -1459,6 +1452,16 @@ Dart_CreateSnapshot(uint8_t** vm_snapshot_data_buffer,
 DART_EXPORT bool Dart_IsKernel(const uint8_t* buffer, intptr_t buffer_size);
 
 /**
+ * Returns whether the buffer contains a bytecode file.
+ *
+ * \param buffer Pointer to a buffer that might contain a bytecode binary.
+ * \param buffer_size Size of the buffer.
+ *
+ * \return Whether the buffer contains a bytecode binary.
+ */
+DART_EXPORT bool Dart_IsBytecode(const uint8_t* buffer, intptr_t buffer_size);
+
+/**
  * Make isolate runnable.
  *
  * When isolates are spawned, this function is used to indicate that
@@ -1791,7 +1794,7 @@ DART_EXPORT void Dart_SetCurrentThreadOwnsIsolate(void);
  * The port can be the isolate's main port, or any other port owned by the
  * isolate.
  *
- * \param port_id The port to be checked.
+ * \param port The port to be checked.
  */
 DART_EXPORT bool Dart_GetCurrentThreadOwnsIsolate(Dart_Port port);
 
@@ -1879,6 +1882,17 @@ DART_EXPORT Dart_Handle Dart_EmptyString(void);
 DART_EXPORT Dart_Handle Dart_TypeDynamic(void);
 DART_EXPORT Dart_Handle Dart_TypeVoid(void);
 DART_EXPORT Dart_Handle Dart_TypeNever(void);
+
+/**
+ * Returns simple core types.
+ *
+ * \return A handle to type.
+ */
+DART_EXPORT Dart_Handle Dart_TypeString();
+DART_EXPORT Dart_Handle Dart_TypeDouble();
+DART_EXPORT Dart_Handle Dart_TypeInt();
+DART_EXPORT Dart_Handle Dart_TypeBoolean();
+DART_EXPORT Dart_Handle Dart_TypeObject();
 
 /**
  * Checks if the two objects are equal.
@@ -2579,6 +2593,26 @@ DART_EXPORT Dart_Handle Dart_MapContainsKey(Dart_Handle map, Dart_Handle key);
  *   error handle.
  */
 DART_EXPORT Dart_Handle Dart_MapKeys(Dart_Handle map);
+
+/**
+ * Returns a Map filled by key value pairs from the provided lists.
+ *
+ * \param keys_type Handle to a type of keys. E.g., from
+ *   Dart_Get<XXX>Type.
+ * \param keys_handle Handle to a list with keys. E.g., from
+ *   Dart_NewList<XXX>.
+ * \param values_type Handle to a type of values. E.g., from
+ *   Dart_Get<XXX>Type.
+ * \param values_handle Handle to a list with values. E.g., from
+ *   Dart_NewList<XXX>.
+ *
+ * \return The Map object if no error occurs. Otherwise returns
+ *   an error handle.
+ */
+DART_EXPORT Dart_Handle Dart_NewMap(Dart_Handle keys_type,
+                                    Dart_Handle keys_handle,
+                                    Dart_Handle values_type,
+                                    Dart_Handle values_handle);
 
 /*
  * ==========
@@ -3351,7 +3385,7 @@ typedef void* (*Dart_NativeAssetsDlopenCallbackNoPath)(char** error);
  *
  * If provided, takes prescedence over `Dart_NativeAssetsDlopenCallback`.
  *
- * \param path The asset id requested in the `@Native` external function.
+ * \param asset_id The asset id requested in the `@Native` external function.
  *
  * \param error Returns NULL if successful, an error message otherwise. The
  *   caller is responsible for calling free() on the error message.
@@ -3369,7 +3403,7 @@ typedef void* (*Dart_NativeAssetsDlopenAssetId)(const char* asset_id,
  * \return A malloced string containing all asset ids. The caller must free this
  *   string.
  */
-typedef char* (*Dart_NativeAssetsAvailableAssets)();
+typedef char* (*Dart_NativeAssetsAvailableAssets)(void);
 
 /**
  * Callback provided by the embedder that is used by the VM to lookup symbols
@@ -3550,6 +3584,32 @@ DART_EXPORT DART_API_WARN_UNUSED_RESULT Dart_Handle
 Dart_LoadScriptFromKernel(const uint8_t* kernel_buffer, intptr_t kernel_size);
 
 /**
+ * Loads the root library for the current isolate.
+ *
+ * Requires there to be no current root library.
+ *
+ * \param kernel_buffer A buffer which contains a bytecode binary.
+ *   Must remain valid until isolate group shutdown.
+ * \param kernel_size Length of the passed in buffer.
+ *
+ * \return A handle to the root library, or an error.
+ */
+DART_EXPORT DART_API_WARN_UNUSED_RESULT Dart_Handle
+Dart_LoadScriptFromBytecode(const uint8_t* kernel_buffer, intptr_t kernel_size);
+
+/**
+ * Loads a module snapshot.
+ *
+ * \param snapshot_data Buffer containing the module snapshot data.
+ *   Must remain valid until isolate group shutdown.
+ * \param snapshot_instructions Buffer containing the module snapshot
+ *   instructions. Must remain valid until isolate group shutdown.
+ */
+DART_EXPORT DART_API_WARN_UNUSED_RESULT Dart_Handle
+Dart_LoadModuleSnapshot(const uint8_t* snapshot_data,
+                        const uint8_t* snapshot_instructions);
+
+/**
  * Gets the library for the root script for the current isolate.
  *
  * If the root script has not yet been set for the current isolate,
@@ -3721,6 +3781,17 @@ DART_EXPORT DART_API_WARN_UNUSED_RESULT Dart_Handle
 Dart_LoadLibrary(Dart_Handle kernel_buffer);
 
 /**
+ * Called by the embedder to load a partial program. Does not set the root
+ * library.
+ *
+ * \param bytecode_buffer An external typed data containing bytecode binary.
+ *
+ * \return A handle to the main library of the compilation unit, or an error.
+ */
+DART_EXPORT DART_API_WARN_UNUSED_RESULT Dart_Handle
+Dart_LoadLibraryFromBytecode(Dart_Handle bytecode_buffer);
+
+/**
  * Indicates that all outstanding load requests have been satisfied.
  * This finalizes all the new classes loaded and optionally completes
  * deferred library futures.
@@ -3818,7 +3889,7 @@ DART_EXPORT Dart_Port Dart_KernelPort(void);
  * Compiles the given `script_uri` to a kernel file.
  *
  * \param platform_kernel A buffer containing the kernel of the platform (e.g.
- * `vm_platform_strong.dill`). The VM does not take ownership of this memory.
+ * `vm_platform.dill`). The VM does not take ownership of this memory.
  *
  * \param platform_kernel_size The length of the platform_kernel buffer.
  *
@@ -3987,7 +4058,7 @@ DART_EXPORT Dart_Handle Dart_LoadingUnitLibraryUris(intptr_t loading_unit_id);
  *
  *  The assembly should be compiled as a static or shared library and linked or
  *  loaded by the embedder. Running this snapshot requires a VM compiled with
- *  DART_PRECOMPILED_SNAPSHOT. The kDartVmSnapshotData and
+ *  DART_PRECOMPILED_RUNTIME. The kDartVmSnapshotData and
  *  kDartVmSnapshotInstructions should be passed to Dart_Initialize. The
  *  kDartIsolateSnapshotData and kDartIsolateSnapshotInstructions should be
  *  passed to Dart_CreateIsolateGroup.
@@ -3998,7 +4069,8 @@ DART_EXPORT Dart_Handle Dart_LoadingUnitLibraryUris(intptr_t loading_unit_id);
  *  debugging sections.
  *
  *  If debug_callback_data is provided, debug_callback_data will be used with
- *  the callback to provide separate debugging information.
+ *  the callback to provide separate debugging information. Ignored when
+ *  targeting Windows.
  *
  *  \return A valid handle if no error occurs during the operation.
  */
@@ -4027,7 +4099,7 @@ Dart_CreateAppAOTSnapshotAsAssemblies(
  *   - _kDartIsolateSnapshotInstructions
  *
  *  The shared library should be dynamically loaded by the embedder.
- *  Running this snapshot requires a VM compiled with DART_PRECOMPILED_SNAPSHOT.
+ *  Running this snapshot requires a VM compiled with DART_PRECOMPILED_RUNTIME.
  *  The kDartVmSnapshotData and kDartVmSnapshotInstructions should be passed to
  *  Dart_Initialize. The kDartIsolateSnapshotData and
  *  kDartIsolateSnapshotInstructions should be passed to Dart_CreateIsolate.
@@ -4053,6 +4125,110 @@ Dart_CreateAppAOTSnapshotAsElfs(Dart_CreateLoadingUnitCallback next_callback,
                                 bool stripped,
                                 Dart_StreamingWriteCallback write_callback,
                                 Dart_StreamingCloseCallback close_callback);
+
+typedef enum {
+  Dart_AotBinaryFormat_Elf = 0,
+  Dart_AotBinaryFormat_Assembly = 1,
+  Dart_AotBinaryFormat_MachO_Dylib = 2,
+} Dart_AotBinaryFormat;
+
+/**
+ *  Creates a precompiled snapshot.
+ *   - A root library must have been loaded.
+ *   - Dart_Precompile must have been called.
+ *
+ *  Outputs a snapshot in the specified binary format defining the symbols
+ *   - _kDartVmSnapshotData
+ *   - _kDartVmSnapshotInstructions
+ *   - _kDartIsolateSnapshotData
+ *   - _kDartIsolateSnapshotInstructions
+ *
+ *  The shared library should be dynamically loaded by the embedder.
+ *  Running this snapshot requires a VM compiled with DART_PRECOMPILED_RUNTIME.
+ *  The kDartVmSnapshotData and kDartVmSnapshotInstructions should be passed to
+ *  Dart_Initialize. The kDartIsolateSnapshotData and
+ *  kDartIsolateSnapshotInstructions should be passed to Dart_CreateIsolate.
+ *
+ *  The callback will be invoked one or more times to provide the binary output.
+ *
+ *  If stripped is true, then the binary output will not include DWARF
+ *  debugging sections.
+ *
+ *  If debug_callback_data is provided, debug_callback_data will be used with
+ *  the callback to provide separate debugging information.
+ *
+ *  The identifier should be an appropriate string for identifying the resulting
+ *  dynamic library. For example, the identifier is used in ID_DYLIB and
+ *  CODE_SIGNATURE load commands for Mach-O dynamic libraries and for DW_AT_name
+ *  in the Dart progam's root DWARF compilation unit.
+ *
+ *  The path should be the full path of the resulting dynamic library.
+ *  Currently, it is only used in unstripped Mach-O snapshots to create an
+ *  appropriate N_OSO symbolic debugging variable so dsymutil can be used.
+ *  The N_OSO symbol is not created if the path is nullptr.
+ *
+ * \return A valid handle if no error occurs during the operation.
+ */
+DART_EXPORT DART_API_WARN_UNUSED_RESULT Dart_Handle
+Dart_CreateAppAOTSnapshotAsBinary(Dart_AotBinaryFormat format,
+                                  Dart_StreamingWriteCallback callback,
+                                  void* callback_data,
+                                  bool stripped,
+                                  void* debug_callback_data,
+                                  const char* identifier,
+                                  const char* path);
+
+/**
+ *  Creates a precompiled snapshot along with a relocatable object file.
+ *   - A root library must have been loaded.
+ *   - Dart_Precompile must have been called.
+ *
+ *  Outputs both a snapshot and a relocatable object file in
+ *  the specified binary format defining the symbols
+ *   - _kDartVmSnapshotData
+ *   - _kDartVmSnapshotInstructions
+ *   - _kDartIsolateSnapshotData
+ *   - _kDartIsolateSnapshotInstructions
+ *  Whether or not the snapshot is stripped, the relocatable object file
+ *  contains all debugging information.
+ *
+ *  The shared library should be dynamically loaded by the embedder.
+ *  Running this snapshot requires a VM compiled with DART_PRECOMPILED_RUNTIME.
+ *  The kDartVmSnapshotData and kDartVmSnapshotInstructions should be passed to
+ *  Dart_Initialize. The kDartIsolateSnapshotData and
+ *  kDartIsolateSnapshotInstructions should be passed to Dart_CreateIsolate.
+ *
+ *  The callback will be invoked one or more times to provide the binary output.
+ *
+ *  If stripped is true, then the binary output will not include DWARF
+ *  debugging sections.
+ *
+ *  If debug_callback_data is provided, debug_callback_data will be used with
+ *  the callback to provide separate debugging information.
+ *
+ *  The identifier should be an appropriate string for identifying the resulting
+ *  dynamic library. For example, the identifier is used in ID_DYLIB and
+ *  CODE_SIGNATURE load commands for Mach-O dynamic libraries and for DW_AT_name
+ *  in the Dart progam's root DWARF compilation unit.
+ *
+ *  The path should be the full path of the resulting relocatable object file.
+ *  Currently, it is only used in Mach-O relocatable object files and snapshots
+ *  to create an appropriate N_OSO symbolic debugging variable
+ *  so dsymutil can be used. Note that an external strip utility is needed to
+ *  remove the N_OSO symbolic debugging variable after dsymutil usage.
+ *
+ * \return A valid handle if no error occurs during the operation.
+ */
+DART_EXPORT DART_API_WARN_UNUSED_RESULT Dart_Handle
+Dart_CreateAppAOTSnapshotAndRelocatableObject(
+    Dart_AotBinaryFormat format,
+    Dart_StreamingWriteCallback callback,
+    void* snapshot_callback_data,
+    void* object_callback_data,
+    bool stripped,
+    void* debug_callback_data,
+    const char* identifier,
+    const char* path);
 
 /**
  *  Like Dart_CreateAppAOTSnapshotAsAssembly, but only includes

@@ -1,5 +1,13 @@
 # Troubleshooting
 
+## Update Packages
+
+Several different issues are related to outdated libraries (e.g. https://github.com/fzyzcjy/flutter_rust_bridge/discussions/2953). The first suggested step is to update them. For example, to update Rust, from the root of your project:
+
+```
+cd rust && cargo update && cd ..
+```
+
 ## Linker complains undefined symbols
 
 e.g. `ld: Undefined symbols: std::__1::basic_string ...`
@@ -158,6 +166,18 @@ unexpected_cfgs = { level = "warn", check-cfg = ['cfg(frb_expand)'] }
 A debug approach is to use `RUST_LOG=debug flutter_rust_bridge_codegen your_args` to get more logs.
 For example, suppose it is stuck at executing `fvm flutter pub get ...`,
 then maybe try to execute that command directly in the shell and see whether it also get stuck.
+
+## Failed to load dynamic library 'librust_lib_my_app.so': dlopen failed: library "librust_lib_my_app.so"
+
+flutter_rust_bridge is compatible with both old and new Flutter. If you see error like `Flutter plugin not found, CargoKit plugin will not be applied.` or `dlopen failed: library "librust_lib_my_app.so" not found` in `flutter run --verbose`, then it is probably because the Cargokit (`rust_builder/cargokit`) version in your project () does not match the Flutter version and need the following changes:
+
+## Cargokit compatibility with Flutter
+
+* To match Flutter <3.32.0: use Cargokit by copy-pasting into `rust_builder/carogkit` before the https://github.com/irondash/cargokit/commit/9b878b73cdcc8e8e00b3094257eefa4143af24f1 commit
+* To match Flutter >=3.32.0: use Cargokit after that commit or just use it
+* Or change by yourself like https://github.com/irondash/cargokit/pull/118
+
+Related issue: https://github.com/fzyzcjy/flutter_rust_bridge/issues/2802
 
 ## Other problems?
 

@@ -151,6 +151,11 @@ fn compute_default_external_library_loader(
             .as_deref()
             .unwrap_or("pkg/")
             .into(),
+        wasm_bindgen_name: config
+            .wasm_bindgen_name
+            .as_deref()
+            .unwrap_or("wasm_bindgen")
+            .into(),
     }
 }
 
@@ -178,8 +183,7 @@ fn compute_dart_type_rename(config: &Config) -> anyhow::Result<HashMap<String, S
         Ok(vec![
             canonicalize_rust_type(raw)?,
             canonicalize_rust_type(&format!(
-                "flutter_rust_bridge::for_generated::RustAutoOpaqueInner<{}>",
-                raw
+                "flutter_rust_bridge::for_generated::RustAutoOpaqueInner<{raw}>"
             ))?,
         ])
     }

@@ -44,6 +44,7 @@ class _FakeBaseEntrypointWithCodegenVersion extends _FakeBaseEntrypoint {
         stem: 'fake_codegen_version',
         ioDirectory: 'fake_dir',
         webPrefix: 'fake',
+        wasmBindgenName: 'wasm_bindgen',
       );
 }
 
@@ -67,7 +68,7 @@ class _FakeBaseEntrypoint extends BaseEntrypoint {
 
   @override
   get wireConstructor => throw UnimplementedError();
-// frb-coverage:ignore-end
+  // frb-coverage:ignore-end
 }
 
 class _FakeApi implements BaseApi {}
